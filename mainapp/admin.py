@@ -35,3 +35,4 @@ admin.site.register(CartGeneral)
 admin.site.register(CartProduct)
 
 admin.site.register(Customer)
+admin.site.register(Battery)
