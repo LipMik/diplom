@@ -25,11 +25,45 @@ from django.urls import reverse  # построение урла для объе
 User = get_user_model()
 
 
+class LatestProductsManager:
+
+    @staticmethod
+    def get_products_for_main_page(*args, **kwargs):
+
+
+        """
+        Имитация одного запроса для отображения списка товаров на главной странице
+        """
+        products = []
+        ct_models = ContentType.objects.filter(model__in=args)
+        # итерация по ответу
+        for ct_models in ct_models:
+            # вызов родительского класса
+            model_products = ct_models.model_class()._base_manager.all().order_by('product_code')[:5]
+            products.extend(model_products)
+        return products
+
+
+class LatestProducts:
+
+    object = LatestProductsManager()
+
+
 def get_product_url(obj, viewname, model_name):
     # построение универсальных урлов для всех продуктов
 
     ct_model = obj.__class__._meta.model_name
     return reverse(viewname, kwargs={'ct_model': ct_model, 'slug': obj.slug})
+
+
+class Customer(models.Model):
+
+    user = models.ForeignKey(User, verbose_name='Пользователь', on_delete=models.CASCADE)
+    phone = models.CharField(max_length=20, verbose_name='Номер телефона', null=True, blank=True)
+    address = models.CharField(max_length=255, verbose_name='Адрес', null=True, blank=True)
+
+    def __str__(self):
+        return 'Покупатель: {} {}'.format(self.user.first_name, self.user.last_name)
 
 
 class Category(models.Model):
@@ -44,6 +78,7 @@ class Product(models.Model):
     class Meta:
         abstract = True
 
+    category = models.ForeignKey(Category, verbose_name='Категория', on_delete=models.CASCADE)
     title = models.CharField(max_length=255, verbose_name='Наименование товара')
     slug = models.SlugField(unique=True)
     image = models.ImageField(verbose_name='Изображение')
@@ -75,7 +110,7 @@ class FullList(models.Model):
 
 
 class Milk(Product):
-    category = models.ForeignKey(Category, verbose_name='Категория', on_delete=models.CASCADE)
+
     code = models.ForeignKey(FullList, verbose_name='Код переработки', on_delete=models.CASCADE)
 
     def __str__(self):
@@ -86,7 +121,6 @@ class Milk(Product):
 
 
 class Drinks(Product):
-    category = models.ForeignKey(Category, verbose_name='Категория', on_delete=models.CASCADE)
     code = models.ForeignKey(FullList, verbose_name='Код переработки', on_delete=models.CASCADE)
 
     def __str__(self):
@@ -96,8 +130,7 @@ class Drinks(Product):
         return get_product_url(self, 'product_detail')
 
 
-class Battery(Product):
-    category = models.ForeignKey(Category, verbose_name='Категория', on_delete=models.CASCADE)
+class Home(Product):
     code = models.ForeignKey(FullList, verbose_name='Код переработки', on_delete=models.CASCADE)
 
     def __str__(self):
@@ -194,13 +227,3 @@ class CartDanger(models.Model):
 
     def __str__(self):
         return str(self.id)
-
-
-class Customer(models.Model):
-
-    user = models.ForeignKey(User, verbose_name='Пользователь', on_delete=models.CASCADE)
-    phone = models.CharField(max_length=20, verbose_name='Номер телефона', null=True, blank=True)
-    address = models.CharField(max_length=255, verbose_name='Адрес', null=True, blank=True)
-
-    def __str__(self):
-        return 'Покупатель: {} {}'.format(self.user.first_name, self.user.last_name)

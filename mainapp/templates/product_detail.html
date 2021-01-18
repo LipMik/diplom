@@ -1,10 +1,29 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
-{{ product.title}}
-</body>
-</html>
+{% extends 'base.html'%}
+
+# наследование в шаблонах
+
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mt-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'base' %}">Домашняя страница</a></li>
+    <li class="breadcrumb-item"><a href="#">{{ product.category.name}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Data</li>
+  </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-4">
+        <img src="{{ product.image.url }}" class="img-fluid">
+    </div>
+
+    <div class="col-md-8">
+        <h5> {{ product.title}} </h5>
+        <h5> Период разложения на свалке: {{ product.period}} лет </h5>
+        <h5> Результат разложения: {{ product.result}} </h5>
+        <h5> Вес отходов: {{ product.weight}} кг. </h5>
+    </div>
+</div>
+
+
+{% endblock content%}

@@ -25,7 +25,7 @@ admin.site.register(Category)
 admin.site.register(Milk)
 admin.site.register(Drinks)
 admin.site.register(FullList)
-
+#
 admin.site.register(Cart)
 admin.site.register(CartPlast)
 admin.site.register(CartPaper)
@@ -35,4 +35,4 @@ admin.site.register(CartGeneral)
 admin.site.register(CartProduct)
 
 admin.site.register(Customer)
-admin.site.register(Battery)
+admin.site.register(Home)

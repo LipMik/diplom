@@ -127,6 +127,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# Джанго ищет новые медиа здесь
 STATIC_DIRS = (
     os.path.join(BASE_DIR, 'static_dev')
 )
