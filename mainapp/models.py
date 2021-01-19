@@ -46,7 +46,28 @@ class LatestProductsManager:
 
 class LatestProducts:
 
-    object = LatestProductsManager()
+    objects = LatestProductsManager()
+
+
+class CategoryManager(models.Manager):
+
+    category_name = {
+        'Молочные продукты': 'milk__count',
+        'Напитки': 'drinks__count',
+        'Бытовые товары': 'home__count'
+    }
+
+    def get_queryset(self):
+        return super().get_queryset()
+
+    def get_categories_for_left_bar(self):
+        models = get_models_for_count('milk', 'drinks', 'home')
+        qs = list(self.get_queryset().annotate(*models).values())
+        return [dict(name=c['name'], slug=c['slug'], count=c[self.category_name[c['name']]]) for c in qs]
+
+
+def get_models_for_count(*model_names):
+    return [models.Count(model_name) for model_name in model_names]
 
 
 def get_product_url(obj, viewname, model_name):
@@ -69,6 +90,7 @@ class Customer(models.Model):
 class Category(models.Model):
     name = models.CharField(max_length=250, verbose_name='Имя категории')
     slug = models.SlugField(unique=True)
+    objects = CategoryManager()
 
     def __str__(self):
         return self.name
@@ -83,9 +105,7 @@ class Product(models.Model):
     slug = models.SlugField(unique=True)
     image = models.ImageField(verbose_name='Изображение')
     description = models.TextField(verbose_name='Описание', null=True)
-    period = models.DecimalField(max_digits=3, decimal_places=0, verbose_name='Период разложения (лет)')
     weight = models.DecimalField(max_digits=9, decimal_places=2, verbose_name='Вес отходов (кг)')
-    result = models.CharField(max_length=255, verbose_name='Результат разложения')
     product_code = models.IntegerField(primary_key=True)
 
     def __str__(self):
@@ -100,7 +120,7 @@ class FullList(models.Model):
     period = models.DecimalField(max_digits=3, decimal_places=0, verbose_name='Период разложения (лет)')
     result = models.CharField(max_length=255, verbose_name='Результат разложения')
     code = models.CharField(max_length=3, verbose_name='Числовой код переработки')
-    mark = models.BooleanField(default=True,verbose_name='Возможность вторичной переработки')
+    mark = models.BooleanField(default=True, verbose_name='Возможность вторичной переработки')
 
     def __str__(self):
         return "{} : {}".format(self.code, self.title)
@@ -141,7 +161,7 @@ class Home(Product):
 
 
 class CartProduct(models.Model):
-    # промежуточная корзина
+    # промежуточное состояние товара, добавляется в корзину не сам товар, а content_object
 
     user = models.ForeignKey('Customer', verbose_name='Пользователь', on_delete=models.CASCADE)
     cart = models.ForeignKey('Cart', verbose_name='Корзина', on_delete=models.CASCADE, related_name='related_products')
@@ -152,7 +172,7 @@ class CartProduct(models.Model):
     final_weight = models.DecimalField(max_digits=9, decimal_places=2, default=0.1, verbose_name='Общий вес отходов')
 
     def __str__(self):
-        return 'Продукт: {} (для корзины)'.format(self.product.title)
+        return 'Продукт: {} (для корзины)'.format(self.content_object.title)
 
 
 class Cart(models.Model):

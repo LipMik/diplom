@@ -1,10 +1,11 @@
 from django.shortcuts import render
 from django.views.generic import DetailView
-from .models import Milk, Drinks, Home
+from .models import Milk, Drinks, Home, Category
 
 
 def test_view(request):
-    return render(request, 'base.html', {})
+    categories_for_left_bar = Category.objects.get_categories_for_left_bar()
+    return render(request, 'base.html', {'categories': categories_for_left_bar})
 
 
 class ProductDetailView(DetailView):
@@ -24,6 +25,6 @@ class ProductDetailView(DetailView):
         self.queryset = self.model._base_manager.all()
         return super().dispatch(request, *args, **kwargs)
 
-    context_object_name = 'product'
+    context_object_name = 'trash'
     template_name = 'product_detail.html'
     slug_url_kwarg = 'slug'
