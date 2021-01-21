@@ -29,19 +29,21 @@ class LatestProductsManager:
 
     @staticmethod
     def get_products_for_main_page(*args, **kwargs):
-
-
-        """
-        Имитация одного запроса для отображения списка товаров на главной странице
-        """
-        products = []
+        with_respect_to = kwargs.get('with_respect_to')
+        product = []
         ct_models = ContentType.objects.filter(model__in=args)
-        # итерация по ответу
-        for ct_models in ct_models:
-            # вызов родительского класса
-            model_products = ct_models.model_class()._base_manager.all().order_by('product_code')[:5]
-            products.extend(model_products)
-        return products
+        for ct_model in ct_models:
+            model_products = ct_model.model_class()._base_manager.all().order_by('product_code')[:5]
+            product.extend(model_products)
+        if with_respect_to:
+            ct_model = ContentType.objects.filter(model=with_respect_to)
+            if ct_model.exists():
+                if with_respect_to in args:
+                    return sorted(
+                        product, key=lambda x: x.__class__._meta.model_name.startswith(with_respect_to),
+                        reverse=True
+                    )
+        return product
 
 
 class LatestProducts:
@@ -61,16 +63,17 @@ class CategoryManager(models.Manager):
         return super().get_queryset()
 
     def get_categories_for_left_bar(self):
-        models = get_models_for_count('milk', 'drinks', 'home')
-        qs = list(self.get_queryset().annotate(*models).values())
-        return [dict(name=c['name'], slug=c['slug'], count=c[self.category_name[c['name']]]) for c in qs]
+        model = get_models_for_count('milk', 'drinks', 'home')
+        qs = list(self.get_queryset().annotate(*model))
+        data = [dict(name=c.name, url=c.get_absolute_url(), count=getattr(c, self.category_name[c.name])) for c in qs]
+        return data
 
 
 def get_models_for_count(*model_names):
     return [models.Count(model_name) for model_name in model_names]
 
 
-def get_product_url(obj, viewname, model_name):
+def get_product_url(obj, viewname):
     # построение универсальных урлов для всех продуктов
 
     ct_model = obj.__class__._meta.model_name
@@ -95,6 +98,9 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        return reverse('category_detail', kwargs={'slug': self.slug})
+
 
 class Product(models.Model):
     class Meta:
@@ -111,8 +117,13 @@ class Product(models.Model):
     def __str__(self):
         return self.title
 
+    # for delete from cart
+    def get_model_name(self):
+        return self.__class__.__name__.lower()
+
 
 class FullList(models.Model):
+
     title = models.CharField(max_length=255, verbose_name='Расшифровка кода')
     slug = models.SlugField(unique=True)
     image = models.ImageField(verbose_name='Изображение')
@@ -121,6 +132,7 @@ class FullList(models.Model):
     result = models.CharField(max_length=255, verbose_name='Результат разложения')
     code = models.CharField(max_length=3, verbose_name='Числовой код переработки')
     mark = models.BooleanField(default=True, verbose_name='Возможность вторичной переработки')
+    result_cart_number = models.IntegerField(verbose_name='Номер урны', default=5)
 
     def __str__(self):
         return "{} : {}".format(self.code, self.title)
@@ -174,26 +186,40 @@ class CartProduct(models.Model):
     def __str__(self):
         return 'Продукт: {} (для корзины)'.format(self.content_object.title)
 
+    def save(self, *args, **kwargs):
+        self.final_weight = self.qty * self.content_object.weight
+        super().save(*args, **kwargs)
+
 
 class Cart(models.Model):
 
-    owner = models.ForeignKey('Customer', null=True, verbose_name='Владелец', on_delete=models.CASCADE)
+    owner = models.ForeignKey('Customer', verbose_name='Владелец', on_delete=models.CASCADE)
     products = models.ManyToManyField(CartProduct, blank=True, related_name='related_cart')
     total_products = models.PositiveIntegerField(default=0)
-    final_weight = models.DecimalField(max_digits=9, decimal_places=2, default=0.1, verbose_name='Общий вес отходов')
     in_order = models.BooleanField(default=False)
     for_anonymous_user = models.BooleanField(default=False)
+    final_weight = models.DecimalField(max_digits=9, decimal_places=2, default=0.1, verbose_name='Общий вес отходов')
 
     def __str__(self):
         return str(self.id)
 
+    # def save(self, *args, **kwargs):
+    #     cart_data = self.products.aggregate(models.Sum('final_weight'), models.Count('id'))
+    #     # print(cart_data)
+    #
+    #     if cart_data.get('final_weight__sum'):
+    #         self.final_weight = cart_data['final_weight__sum']
+    #     else:
+    #         self.final_weight = 0
+    #     self.total_products = cart_data['id__count']
+    #     super().save(*args, **kwargs)
+
 
 class CartPlast(models.Model):
 
-    owner = models.ForeignKey(User, verbose_name='Владелец', on_delete=models.CASCADE)
-    products = models.OneToOneField(Cart, blank=True, related_name='related_plast', on_delete=models.CASCADE)
+    owner = models.ForeignKey('Customer', verbose_name='Владелец', on_delete=models.CASCADE)
+    products = models.ManyToManyField(CartProduct, blank=True, related_name='related_plast')
     total_products = models.PositiveIntegerField(default=0)
-
     in_order = models.BooleanField(default=False)
     for_anonymous_user = models.BooleanField(default=False)
 
@@ -203,8 +229,8 @@ class CartPlast(models.Model):
 
 class CartPaper(models.Model):
 
-    owner = models.ForeignKey(User, verbose_name='Владелец', on_delete=models.CASCADE)
-    products = models.OneToOneField(Cart, blank=True, related_name='related_paper', on_delete=models.CASCADE)
+    owner = models.ForeignKey('Customer', verbose_name='Владелец', on_delete=models.CASCADE)
+    products = models.ManyToManyField(CartProduct, blank=True, related_name='related_paper')
     total_products = models.PositiveIntegerField(default=0)
     in_order = models.BooleanField(default=False)
     for_anonymous_user = models.BooleanField(default=False)
@@ -215,8 +241,8 @@ class CartPaper(models.Model):
 
 class CartGlas(models.Model):
 
-    owner = models.ForeignKey(User, verbose_name='Владелец', on_delete=models.CASCADE)
-    products = models.OneToOneField(Cart, blank=True, related_name='related_glas', on_delete=models.CASCADE)
+    owner = models.ForeignKey('Customer', verbose_name='Владелец', on_delete=models.CASCADE)
+    products = models.ManyToManyField(CartProduct, blank=True, related_name='related_glas')
     total_products = models.PositiveIntegerField(default=0)
     in_order = models.BooleanField(default=False)
     for_anonymous_user = models.BooleanField(default=False)
@@ -227,8 +253,8 @@ class CartGlas(models.Model):
 
 class CartGeneral(models.Model):
 
-    owner = models.ForeignKey(User, verbose_name='Владелец', on_delete=models.CASCADE)
-    products = models.OneToOneField(Cart, blank=True, related_name='related_general', on_delete=models.CASCADE)
+    owner = models.ForeignKey('Customer', verbose_name='Владелец', on_delete=models.CASCADE)
+    products = models.ManyToManyField(CartProduct, blank=True, related_name='related_general')
     total_products = models.PositiveIntegerField(default=0)
     in_order = models.BooleanField(default=False)
     for_anonymous_user = models.BooleanField(default=False)
@@ -239,8 +265,8 @@ class CartGeneral(models.Model):
 
 class CartDanger(models.Model):
 
-    owner = models.ForeignKey(User, verbose_name='Владелец', on_delete=models.CASCADE)
-    products = models.OneToOneField(Cart, blank=True, related_name='related_danger', on_delete=models.CASCADE)
+    owner = models.ForeignKey('Customer', verbose_name='Владелец', on_delete=models.CASCADE)
+    products = models.ManyToManyField(CartProduct, blank=True, related_name='related_danger')
     total_products = models.PositiveIntegerField(default=0)
     in_order = models.BooleanField(default=False)
     for_anonymous_user = models.BooleanField(default=False)

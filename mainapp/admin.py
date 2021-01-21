@@ -25,7 +25,7 @@ admin.site.register(Category)
 admin.site.register(Milk)
 admin.site.register(Drinks)
 admin.site.register(FullList)
-#
+
 admin.site.register(Cart)
 admin.site.register(CartPlast)
 admin.site.register(CartPaper)

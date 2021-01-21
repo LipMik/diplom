@@ -77,9 +77,9 @@ WSGI_APPLICATION = 'diplom.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'first_db',
-        'USER': 'db_user',
-        'PASSWORD': 'db_pass_1',
+        'NAME': 'diplom_db',
+        'USER': 'diplom_user',
+        'PASSWORD': 'password',
         'HOST': '127.0.0.1',
         'PORT': '5432',
     }
